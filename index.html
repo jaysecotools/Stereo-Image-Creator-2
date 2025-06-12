@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stereo Image Generator</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 15px;
+      touch-action: manipulation;
+      -webkit-text-size-adjust: 100%;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .upload-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .canvas-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: center;
+      margin-bottom: 15px;
+    }
+    canvas {
+      border: 1px solid #ddd;
+      max-width: 100%;
+      background: #f8f8f8;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 15px;
+      cursor: pointer;
+      background: #007aff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      flex: 1 1 auto;
+      min-width: 120px;
+      touch-action: manipulation;
+    }
+    button:disabled {
+      background: #cccccc;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 15px;
+    }
+    #cameraPreview {
+      display: none;
+      width: 100%;
+      max-height: 50vh;
+      background: black;
+      margin: 10px 0;
+    }
+    #photoCaptureBtn, #cameraSwitchBtn {
+      display: none;
+    }
+    .loading {
+      display: none;
+      color: #007aff;
+      margin: 10px 0;
+      text-align: center;
+    }
+    .camera-options {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+    .status {
+      color: #666;
+      font-style: italic;
+      text-align: center;
+      font-size: 14px;
+    }
+    .canvas-wrapper {
+      flex: 1 1 45%;
+      min-width: 0;
+    }
+    .canvas-label {
+      font-weight: bold;
+      margin-bottom: 5px;
+      text-align: center;
+    }
+    .result-wrapper {
+      width: 100%;
+      margin-top: 15px;
+    }
+    @media (max-width: 480px) {
+      button {
+        padding: 12px 10px;
+        font-size: 14px;
+      }
+      .controls {
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 style="text-align: center;">Stereo Image Generator</h1>
+    
+    <div class="upload-section">
+      <button id="uploadLeft">Upload Left</button>
+      <button id="uploadRight">Upload Right</button>
+      <button id="takePhoto">Take Photo</button>
+      
+      <div class="camera-options">
+        <button id="cameraSwitchBtn">Switch Camera</button>
+        <button id="photoCaptureBtn">Capture Photo</button>
+      </div>
+      
+      <video id="cameraPreview" autoplay playsinline></video>
+      <p id="cameraStatus" class="status">Camera not active</p>
+    </div>
+    
+    <div class="canvas-container">
+      <div class="canvas-wrapper">
+        <p class="canvas-label">Left Image</p>
+        <canvas id="leftCanvas"></canvas>
+      </div>
+      <div class="canvas-wrapper">
+        <p class="canvas-label">Right Image</p>
+        <canvas id="rightCanvas"></canvas>
+      </div>
+    </div>
+    
+    <div class="controls">
+      <button id="autoAlign">Auto-Align</button>
+      <button id="generateSideBySide">Side-by-Side</button>
+      <button id="generateAnaglyph">Red/Cyan 3D</button>
+      <button id="saveResult">Save Result</button>
+    </div>
+    
+    <div class="result-wrapper">
+      <h3 style="text-align: center;">Result:</h3>
+      <canvas id="resultCanvas"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // DOM elements
+    const uploadLeftBtn = document.getElementById('uploadLeft');
+    const uploadRightBtn = document.getElementById('uploadRight');
+    const takePhotoBtn = document.getElementById('takePhoto');
+    const cameraSwitchBtn = document.getElementById('cameraSwitchBtn');
+    const photoCaptureBtn = document.getElementById('photoCaptureBtn');
+    const cameraPreview = document.getElementById('cameraPreview');
+    const cameraStatus = document.getElementById('cameraStatus');
+    const autoAlignBtn = document.getElementById('autoAlign');
+    const generateSideBySideBtn = document.getElementById('generateSideBySide');
+    const generateAnaglyphBtn = document.getElementById('generateAnaglyph');
+    const saveResultBtn = document.getElementById('saveResult');
+
+    const leftCanvas = document.getElementById('leftCanvas');
+    const rightCanvas = document.getElementById('rightCanvas');
+    const resultCanvas = document.getElementById('resultCanvas');
+
+    const leftCtx = leftCanvas.getContext('2d');
+    const rightCtx = rightCanvas.getContext('2d');
+    const resultCtx = resultCanvas.getContext('2d');
+
+    // State variables
+    let leftImage = null;
+    let rightImage = null;
+    let currentCameraSide = 'left';
+    let currentStream = null;
+    let useFrontCamera = false;
+
+    // Initialize canvas sizes
+    function initCanvases() {
+      const maxWidth = Math.min(window.innerWidth * 0.9, 400);
+      const maxHeight = Math.min(window.innerHeight * 0.3, 300);
+      
+      [leftCanvas, rightCanvas, resultCanvas].forEach(canvas => {
+        canvas.width = maxWidth;
+        canvas.height = maxHeight;
+        canvas.getContext('2d').fillStyle = '#f8f8f8';
+        canvas.getContext('2d').fillRect(0, 0, canvas.width, canvas.height);
+      });
+    }
+    initCanvases();
+    window.addEventListener('resize', initCanvases);
+
+    // Upload images
+    function handleImageUpload(canvas, ctx, e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const img = new Image();
+      img.onload = () => {
+        // Resize to fit canvas while maintaining aspect ratio
+        const ratio = Math.min(
+          canvas.width / img.width,
+          canvas.height / img.height
+        );
+        const newWidth = img.width * ratio;
+        const newHeight = img.height * ratio;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+        
+        if (canvas.id === 'leftCanvas') {
+          leftImage = img;
+        } else {
+          rightImage = img;
+        }
+        updateUI();
+      };
+      img.src = URL.createObjectURL(file);
+    }
+
+    uploadLeftBtn.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e) => handleImageUpload(leftCanvas, leftCtx, e);
+      input.click();
+    });
+
+    uploadRightBtn.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e) => handleImageUpload(rightCanvas, rightCtx, e);
+      input.click();
+    });
+
+    // Camera functions
+    async function startCamera(facingMode = 'environment') {
+      try {
+        // Stop any existing stream
+        if (currentStream) {
+          currentStream.getTracks().forEach(track => track.stop());
+        }
+
+        const constraints = {
+          video: { 
+            facingMode: facingMode,
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        cameraPreview.srcObject = stream;
+        cameraPreview.style.display = 'block';
+        photoCaptureBtn.style.display = 'inline-block';
+        cameraSwitchBtn.style.display = 'inline-block';
+        takePhotoBtn.style.display = 'none';
+        currentStream = stream;
+        cameraStatus.textContent = `Camera active (${useFrontCamera ? 'Front' : 'Rear'})`;
+
+        photoCaptureBtn.textContent = `Capture ${currentCameraSide === 'left' ? 'Left' : 'Right'}`;
+      } catch (err) {
+        cameraStatus.textContent = `Camera error: ${err.message}`;
+        console.error('Camera error:', err);
+      }
+    }
+
+    takePhotoBtn.addEventListener('click', () => {
+      startCamera(useFrontCamera ? 'user' : 'environment');
+    });
+
+    cameraSwitchBtn.addEventListener('click', () => {
+      useFrontCamera = !useFrontCamera;
+      startCamera(useFrontCamera ? 'user' : 'environment');
+    });
+
+    photoCaptureBtn.addEventListener('click', () => {
+      if (!currentStream) return;
+      
+      const canvas = currentCameraSide === 'left' ? leftCanvas : rightCanvas;
+      const ctx = currentCameraSide === 'left' ? leftCtx : rightCtx;
+
+      // Calculate dimensions to maintain aspect ratio
+      const videoRatio = cameraPreview.videoWidth / cameraPreview.videoHeight;
+      let drawWidth = canvas.width;
+      let drawHeight = canvas.height;
+      
+      if (canvas.width / canvas.height > videoRatio) {
+        drawWidth = canvas.height * videoRatio;
+      } else {
+        drawHeight = canvas.width / videoRatio;
+      }
+      
+      const offsetX = (canvas.width - drawWidth) / 2;
+      const offsetY = (canvas.height - drawHeight) / 2;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(cameraPreview, offsetX, offsetY, drawWidth, drawHeight);
+
+      if (currentCameraSide === 'left') {
+        leftImage = new Image();
+        leftImage.src = canvas.toDataURL('image/png');
+        currentCameraSide = 'right';
+        photoCaptureBtn.textContent = 'Capture Right';
+      } else {
+        rightImage = new Image();
+        rightImage.src = canvas.toDataURL('image/png');
+        stopCamera();
+        currentCameraSide = 'left';
+      }
+      
+      updateUI();
+    });
+
+    function stopCamera() {
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+      }
+      cameraPreview.style.display = 'none';
+      photoCaptureBtn.style.display = 'none';
+      cameraSwitchBtn.style.display = 'none';
+      takePhotoBtn.style.display = 'inline-block';
+      cameraStatus.textContent = 'Camera not active';
+    }
+
+    // Image processing
+    autoAlignBtn.addEventListener('click', () => {
+      if (!leftImage || !rightImage) {
+        alert('Please upload both images first!');
+        return;
+      }
+
+      const maxWidth = Math.max(leftCanvas.width, rightCanvas.width);
+      const maxHeight = Math.max(leftCanvas.height, rightCanvas.height);
+
+      leftCanvas.width = rightCanvas.width = maxWidth;
+      leftCanvas.height = rightCanvas.height = maxHeight;
+
+      leftCtx.drawImage(leftImage, 0, 0, maxWidth, maxHeight);
+      rightCtx.drawImage(rightImage, 0, 0, maxWidth, maxHeight);
+      
+      // Update image references
+      leftImage = new Image();
+      leftImage.src = leftCanvas.toDataURL();
+      rightImage = new Image();
+      rightImage.src = rightCanvas.toDataURL();
+    });
+
+    generateSideBySideBtn.addEventListener('click', () => {
+      if (!leftImage || !rightImage) {
+        alert('Please upload both images first!');
+        return;
+      }
+
+      resultCanvas.width = leftCanvas.width + rightCanvas.width;
+      resultCanvas.height = Math.max(leftCanvas.height, rightCanvas.height);
+      resultCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+      
+      // Center images vertically if heights differ
+      const leftOffset = (resultCanvas.height - leftCanvas.height) / 2;
+      const rightOffset = (resultCanvas.height - rightCanvas.height) / 2;
+      
+      resultCtx.drawImage(leftCanvas, 0, leftOffset);
+      resultCtx.drawImage(rightCanvas, leftCanvas.width, rightOffset);
+      
+      // Clear any previous GIF data
+      delete resultCanvas.dataset.gifUrl;
+    });
+
+    generateAnaglyphBtn.addEventListener('click', () => {
+      if (!leftImage || !rightImage) {
+        alert('Please upload both images first!');
+        return;
+      }
+
+      const maxWidth = Math.max(leftCanvas.width, rightCanvas.width);
+      const maxHeight = Math.max(leftCanvas.height, rightCanvas.height);
+      
+      resultCanvas.width = maxWidth;
+      resultCanvas.height = maxHeight;
+      resultCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+
+      // Create temporary canvases for consistent sizing
+      const tempLeftCanvas = document.createElement('canvas');
+      tempLeftCanvas.width = maxWidth;
+      tempLeftCanvas.height = maxHeight;
+      const tempLeftCtx = tempLeftCanvas.getContext('2d');
+      
+      // Center left image if needed
+      const leftX = (maxWidth - leftCanvas.width) / 2;
+      const leftY = (maxHeight - leftCanvas.height) / 2;
+      tempLeftCtx.drawImage(leftCanvas, leftX, leftY);
+
+      const tempRightCanvas = document.createElement('canvas');
+      tempRightCanvas.width = maxWidth;
+      tempRightCanvas.height = maxHeight;
+      const tempRightCtx = tempRightCanvas.getContext('2d');
+      
+      // Center right image if needed
+      const rightX = (maxWidth - rightCanvas.width) / 2;
+      const rightY = (maxHeight - rightCanvas.height) / 2;
+      tempRightCtx.drawImage(rightCanvas, rightX, rightY);
+
+      const leftData = tempLeftCtx.getImageData(0, 0, maxWidth, maxHeight);
+      const rightData = tempRightCtx.getImageData(0, 0, maxWidth, maxHeight);
+      const resultData = resultCtx.createImageData(maxWidth, maxHeight);
+
+      for (let i = 0; i < leftData.data.length; i += 4) {
+        resultData.data[i] = leftData.data[i];         // Red from left
+        resultData.data[i + 1] = rightData.data[i + 1]; // Green from right
+        resultData.data[i + 2] = rightData.data[i + 2]; // Blue from right
+        resultData.data[i + 3] = 255;                  // Alpha
+      }
+
+      resultCtx.putImageData(resultData, 0, 0);
+      
+      // Clear any previous GIF data
+      delete resultCanvas.dataset.gifUrl;
+    });
+
+    saveResultBtn.addEventListener('click', () => {
+      if (resultCanvas.width === 0 || resultCanvas.height === 0) {
+        alert('No result to save! Generate an image first.');
+        return;
+      }
+
+      let url, filename;
+      
+      if (resultCanvas.dataset.gifUrl) {
+        // Save GIF
+        url = resultCanvas.dataset.gifUrl;
+        filename = 'stereo-image.gif';
+      } else {
+        // Save PNG
+        url = resultCanvas.toDataURL('image/png');
+        filename = 'stereo-image.png';
+      }
+
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+    // Helper function to update UI state
+    function updateUI() {
+      const hasBothImages = leftImage && rightImage;
+      autoAlignBtn.disabled = !hasBothImages;
+      generateSideBySideBtn.disabled = !hasBothImages;
+      generateAnaglyphBtn.disabled = !hasBothImages;
+      saveResultBtn.disabled = resultCanvas.width === 0;
+    }
+
+    // Initialize
+    updateUI();
+  </script>
+</body>
+</html>
