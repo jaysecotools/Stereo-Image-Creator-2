@@ -180,6 +180,9 @@
     let currentCameraSide = 'left';
     let currentStream = null;
     let useFrontCamera = false;
+    let leftCanvasData = null;
+    let rightCanvasData = null;
+    let resultCanvasData = null;
 
     // Initialize canvas sizes
     function initCanvases() {
@@ -187,14 +190,53 @@
       const maxHeight = Math.min(window.innerHeight * 0.3, 300);
       
       [leftCanvas, rightCanvas, resultCanvas].forEach(canvas => {
+        const tempData = canvas.toDataURL(); // Save current content
         canvas.width = maxWidth;
         canvas.height = maxHeight;
-        canvas.getContext('2d').fillStyle = '#f8f8f8';
-        canvas.getContext('2d').fillRect(0, 0, canvas.width, canvas.height);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#f8f8f8';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Restore content if available
+        if (canvas.id === 'leftCanvas' && leftCanvasData) {
+          restoreCanvas(canvas, leftCanvasData);
+        } else if (canvas.id === 'rightCanvas' && rightCanvasData) {
+          restoreCanvas(canvas, rightCanvasData);
+        } else if (canvas.id === 'resultCanvas' && resultCanvasData) {
+          restoreCanvas(canvas, resultCanvasData);
+        }
       });
     }
-    initCanvases();
-    window.addEventListener('resize', initCanvases);
+
+    // Function to restore canvas content
+    function restoreCanvas(canvas, dataUrl) {
+      if (!dataUrl) return;
+      
+      const img = new Image();
+      img.onload = function() {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Calculate dimensions to maintain aspect ratio
+        const ratio = Math.min(
+          canvas.width / img.width,
+          canvas.height / img.height
+        );
+        const newWidth = img.width * ratio;
+        const newHeight = img.height * ratio;
+        
+        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+        
+        // Update the corresponding image reference
+        if (canvas.id === 'leftCanvas') {
+          leftImage = img;
+        } else if (canvas.id === 'rightCanvas') {
+          rightImage = img;
+        }
+        updateUI();
+      };
+      img.src = dataUrl;
+    }
 
     // Upload images
     function handleImageUpload(canvas, ctx, e) {
@@ -214,10 +256,14 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, newWidth, newHeight);
         
+        // Save the canvas data
+        const dataUrl = canvas.toDataURL();
         if (canvas.id === 'leftCanvas') {
           leftImage = img;
+          leftCanvasData = dataUrl;
         } else {
           rightImage = img;
+          rightCanvasData = dataUrl;
         }
         updateUI();
       };
@@ -304,14 +350,18 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(cameraPreview, offsetX, offsetY, drawWidth, drawHeight);
 
+      // Save the canvas data
+      const dataUrl = canvas.toDataURL();
       if (currentCameraSide === 'left') {
+        leftCanvasData = dataUrl;
         leftImage = new Image();
-        leftImage.src = canvas.toDataURL('image/png');
+        leftImage.src = dataUrl;
         currentCameraSide = 'right';
         photoCaptureBtn.textContent = 'Capture Right';
       } else {
+        rightCanvasData = dataUrl;
         rightImage = new Image();
-        rightImage.src = canvas.toDataURL('image/png');
+        rightImage.src = dataUrl;
         stopCamera();
         currentCameraSide = 'left';
       }
@@ -347,11 +397,13 @@
       leftCtx.drawImage(leftImage, 0, 0, maxWidth, maxHeight);
       rightCtx.drawImage(rightImage, 0, 0, maxWidth, maxHeight);
       
-      // Update image references
+      // Update image references and save canvas data
+      leftCanvasData = leftCanvas.toDataURL();
+      rightCanvasData = rightCanvas.toDataURL();
       leftImage = new Image();
-      leftImage.src = leftCanvas.toDataURL();
+      leftImage.src = leftCanvasData;
       rightImage = new Image();
-      rightImage.src = rightCanvas.toDataURL();
+      rightImage.src = rightCanvasData;
     });
 
     generateSideBySideBtn.addEventListener('click', () => {
@@ -370,6 +422,9 @@
       
       resultCtx.drawImage(leftCanvas, 0, leftOffset);
       resultCtx.drawImage(rightCanvas, leftCanvas.width, rightOffset);
+      
+      // Save the result canvas data
+      resultCanvasData = resultCanvas.toDataURL();
       
       // Clear any previous GIF data
       delete resultCanvas.dataset.gifUrl;
@@ -422,6 +477,9 @@
 
       resultCtx.putImageData(resultData, 0, 0);
       
+      // Save the result canvas data
+      resultCanvasData = resultCanvas.toDataURL();
+      
       // Clear any previous GIF data
       delete resultCanvas.dataset.gifUrl;
     });
@@ -462,7 +520,18 @@
     }
 
     // Initialize
+    initCanvases();
     updateUI();
+
+    // Add visibility change handler to restore canvases if needed
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) {
+        // Restore canvases when page becomes visible again
+        if (leftCanvasData) restoreCanvas(leftCanvas, leftCanvasData);
+        if (rightCanvasData) restoreCanvas(rightCanvas, rightCanvasData);
+        if (resultCanvasData) restoreCanvas(resultCanvas, resultCanvasData);
+      }
+    });
   </script>
 </body>
 </html>
