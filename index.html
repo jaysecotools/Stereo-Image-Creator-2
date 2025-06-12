@@ -36,6 +36,8 @@
       max-width: 100%;
       background: #f8f8f8;
       box-sizing: border-box;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
     }
     button {
       padding: 10px 15px;
@@ -104,10 +106,21 @@
       max-height: 70vh;
       width: auto;
       height: auto;
-      image-rendering: -moz-crisp-edges;
-      image-rendering: -webkit-optimize-contrast;
-      image-rendering: crisp-edges;
-      -ms-interpolation-mode: nearest-neighbor;
+    }
+    .quality-controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .quality-controls label {
+      font-size: 14px;
+    }
+    .quality-controls select {
+      padding: 5px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
     }
     @media (max-width: 480px) {
       button {
@@ -136,6 +149,24 @@
       
       <video id="cameraPreview" autoplay playsinline></video>
       <p id="cameraStatus" class="status">Camera not active</p>
+    </div>
+    
+    <div class="quality-controls">
+      <label for="outputQuality">Output Quality:</label>
+      <select id="outputQuality">
+        <option value="1.0">Maximum (PNG)</option>
+        <option value="0.9">High (WebP)</option>
+        <option value="0.8">Good (JPEG)</option>
+        <option value="0.6">Medium (JPEG)</option>
+      </select>
+      
+      <label for="outputSize">Output Size:</label>
+      <select id="outputSize">
+        <option value="original">Original</option>
+        <option value="1080p">1080p</option>
+        <option value="720p">720p</option>
+        <option value="custom">Custom</option>
+      </select>
     </div>
     
     <div class="canvas-container">
@@ -175,6 +206,8 @@
     const generateSideBySideBtn = document.getElementById('generateSideBySide');
     const generateAnaglyphBtn = document.getElementById('generateAnaglyph');
     const saveResultBtn = document.getElementById('saveResult');
+    const outputQualitySelect = document.getElementById('outputQuality');
+    const outputSizeSelect = document.getElementById('outputSize');
 
     const leftCanvas = document.getElementById('leftCanvas');
     const rightCanvas = document.getElementById('rightCanvas');
@@ -196,30 +229,26 @@
 
     // Initialize canvas sizes with proper aspect ratio and high quality
     function initCanvases() {
-      const maxHeight = Math.min(window.innerHeight * 0.3, 300);
-      
-      // Set height first, then calculate width based on image aspect ratio
+      // For left and right canvases, use original image sizes if available
       if (leftImage) {
-        const ratio = leftImage.width / leftImage.height;
-        leftCanvas.height = maxHeight;
-        leftCanvas.width = maxHeight * ratio;
+        leftCanvas.width = leftImage.width;
+        leftCanvas.height = leftImage.height;
       } else {
-        leftCanvas.height = maxHeight;
-        leftCanvas.width = maxHeight * 0.75;
+        leftCanvas.height = Math.min(window.innerHeight * 0.3, 300);
+        leftCanvas.width = leftCanvas.height * 0.75;
       }
       
       if (rightImage) {
-        const ratio = rightImage.width / rightImage.height;
-        rightCanvas.height = maxHeight;
-        rightCanvas.width = maxHeight * ratio;
+        rightCanvas.width = rightImage.width;
+        rightCanvas.height = rightImage.height;
       } else {
-        rightCanvas.height = maxHeight;
-        rightCanvas.width = maxHeight * 0.75;
+        rightCanvas.height = Math.min(window.innerHeight * 0.3, 300);
+        rightCanvas.width = rightCanvas.height * 0.75;
       }
       
-      // Result canvas starts with higher resolution
-      resultCanvas.height = Math.min(window.innerHeight * 0.7, 1200);
-      resultCanvas.width = Math.min(window.innerWidth * 0.95, 1600);
+      // For result canvas, make it large enough for high-quality output
+      resultCanvas.width = Math.min(window.innerWidth * 0.95, 1920);
+      resultCanvas.height = Math.min(window.innerHeight * 0.7, 1080);
       
       // Restore content if available
       if (leftCanvasData) restoreCanvas(leftCanvas, leftCanvasData);
@@ -234,22 +263,13 @@
       const img = new Image();
       img.onload = function() {
         const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Calculate dimensions to maintain aspect ratio
-        const ratio = Math.min(
-          canvas.width / img.width,
-          canvas.height / img.height
-        );
-        const newWidth = img.width * ratio;
-        const newHeight = img.height * ratio;
-        
-        const offsetX = (canvas.width - newWidth) / 2;
-        const offsetY = (canvas.height - newHeight) / 2;
-        
         // Use high-quality drawing
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(img, offsetX, offsetY, newWidth, newHeight);
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(img, 0, 0);
         
         // Update the corresponding image reference
         if (canvas.id === 'leftCanvas') {
@@ -269,18 +289,17 @@
 
       const img = new Image();
       img.onload = () => {
-        // First adjust canvas size to match image aspect ratio
-        const ratio = img.width / img.height;
-        canvas.height = Math.min(window.innerHeight * 0.3, 300);
-        canvas.width = canvas.height * ratio;
+        // Set canvas to exact image dimensions
+        canvas.width = img.width;
+        canvas.height = img.height;
         
-        // Then draw the image with high quality
+        // Draw the image at full resolution
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(img, 0, 0);
         
         // Save the canvas data at high quality
-        const dataUrl = canvas.toDataURL('image/png', 1.0);
+        const dataUrl = getCanvasDataUrl(canvas);
         if (canvas.id === 'leftCanvas') {
           leftImage = img;
           leftCanvasData = dataUrl;
@@ -291,6 +310,24 @@
         updateUI();
       };
       img.src = URL.createObjectURL(file);
+    }
+
+    // Helper function to get canvas data URL with selected quality
+    function getCanvasDataUrl(canvas) {
+      const quality = parseFloat(outputQualitySelect.value);
+      const format = quality === 1.0 ? 'image/png' : 'image/jpeg';
+      return canvas.toDataURL(format, quality);
+    }
+
+    // Helper function to resize image with high quality
+    function resizeImage(image, targetWidth, targetHeight) {
+      const canvas = document.createElement('canvas');
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+      return canvas;
     }
 
     uploadLeftBtn.addEventListener('click', () => {
@@ -355,18 +392,21 @@
       const canvas = currentCameraSide === 'left' ? leftCanvas : rightCanvas;
       const ctx = currentCameraSide === 'left' ? leftCtx : rightCtx;
 
-      // Adjust canvas size to match camera aspect ratio at high quality
-      const videoRatio = cameraPreview.videoWidth / cameraPreview.videoHeight;
-      canvas.height = Math.min(window.innerHeight * 0.3, 300);
-      canvas.width = canvas.height * videoRatio;
+      // Get the actual video dimensions
+      const videoWidth = cameraPreview.videoWidth;
+      const videoHeight = cameraPreview.videoHeight;
+      
+      // Set canvas to match camera resolution
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
       
       // Draw with high quality
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.imageSmoothingEnabled = false;
+      ctx.imageSmoothingEnabled = true;
       ctx.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
 
       // Save at high quality
-      const dataUrl = canvas.toDataURL('image/png', 1.0);
+      const dataUrl = getCanvasDataUrl(canvas);
       if (currentCameraSide === 'left') {
         leftCanvasData = dataUrl;
         leftImage = new Image();
@@ -403,27 +443,27 @@
         return;
       }
 
-      // Find the dominant aspect ratio (use the first image's ratio)
-      const targetRatio = leftImage.width / leftImage.height;
-      const targetHeight = Math.min(window.innerHeight * 0.3, 300);
-      const targetWidth = targetHeight * targetRatio;
+      // Use the larger dimensions as target
+      const targetWidth = Math.max(leftImage.width, rightImage.width);
+      const targetHeight = Math.max(leftImage.height, rightImage.height);
 
-      // Resize both canvases to match this aspect ratio
+      // Resize canvases to target dimensions
       leftCanvas.width = rightCanvas.width = targetWidth;
       leftCanvas.height = rightCanvas.height = targetHeight;
 
       // Draw images centered and properly scaled at high quality
-      leftCtx.clearRect(0, 0, leftCanvas.width, leftCanvas.height);
-      rightCtx.clearRect(0, 0, rightCanvas.width, rightCanvas.height);
+      leftCtx.clearRect(0, 0, targetWidth, targetHeight);
+      rightCtx.clearRect(0, 0, targetWidth, targetHeight);
       
-      leftCtx.imageSmoothingEnabled = false;
-      rightCtx.imageSmoothingEnabled = false;
+      leftCtx.imageSmoothingEnabled = true;
+      rightCtx.imageSmoothingEnabled = true;
       
-      const leftScale = Math.max(
+      // Calculate scaling to fit while maintaining aspect ratio
+      const leftScale = Math.min(
         targetWidth / leftImage.width,
         targetHeight / leftImage.height
       );
-      const rightScale = Math.max(
+      const rightScale = Math.min(
         targetWidth / rightImage.width,
         targetHeight / rightImage.height
       );
@@ -451,8 +491,8 @@
       );
       
       // Update image references and save canvas data at high quality
-      leftCanvasData = leftCanvas.toDataURL('image/png', 1.0);
-      rightCanvasData = rightCanvas.toDataURL('image/png', 1.0);
+      leftCanvasData = getCanvasDataUrl(leftCanvas);
+      rightCanvasData = getCanvasDataUrl(rightCanvas);
       leftImage = new Image();
       leftImage.src = leftCanvasData;
       rightImage = new Image();
@@ -466,33 +506,43 @@
         return;
       }
 
-      // Create temporary canvases at original resolution
-      const tempLeftCanvas = document.createElement('canvas');
-      tempLeftCanvas.width = leftImage.width;
-      tempLeftCanvas.height = leftImage.height;
-      const tempLeftCtx = tempLeftCanvas.getContext('2d');
-      tempLeftCtx.imageSmoothingEnabled = false;
-      tempLeftCtx.drawImage(leftImage, 0, 0);
+      // Determine output size based on selection
+      let outputWidth = leftImage.width + rightImage.width;
+      let outputHeight = Math.max(leftImage.height, rightImage.height);
       
-      const tempRightCanvas = document.createElement('canvas');
-      tempRightCanvas.width = rightImage.width;
-      tempRightCanvas.height = rightImage.height;
-      const tempRightCtx = tempRightCanvas.getContext('2d');
-      tempRightCtx.imageSmoothingEnabled = false;
-      tempRightCtx.drawImage(rightImage, 0, 0);
+      const sizeOption = outputSizeSelect.value;
+      if (sizeOption !== 'original') {
+        const targetHeight = sizeOption === '1080p' ? 1080 : 720;
+        const scale = targetHeight / outputHeight;
+        outputWidth = Math.round(outputWidth * scale);
+        outputHeight = targetHeight;
+      }
+
+      // Create temporary canvases at target resolution
+      const tempLeftCanvas = resizeImage(
+        leftImage,
+        Math.round(leftImage.width * (outputHeight / leftImage.height)),
+        outputHeight
+      );
       
-      // Set result canvas to sum of original widths
-      resultCanvas.width = leftImage.width + rightImage.width;
-      resultCanvas.height = Math.max(leftImage.height, rightImage.height);
+      const tempRightCanvas = resizeImage(
+        rightImage,
+        Math.round(rightImage.width * (outputHeight / rightImage.height)),
+        outputHeight
+      );
+      
+      // Set result canvas dimensions
+      resultCanvas.width = tempLeftCanvas.width + tempRightCanvas.width;
+      resultCanvas.height = outputHeight;
       
       // Draw at full resolution with high quality
       resultCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
-      resultCtx.imageSmoothingEnabled = false;
-      resultCtx.drawImage(tempLeftCanvas, 0, (resultCanvas.height - leftImage.height) / 2);
-      resultCtx.drawImage(tempRightCanvas, leftImage.width, (resultCanvas.height - rightImage.height) / 2);
+      resultCtx.imageSmoothingEnabled = true;
+      resultCtx.drawImage(tempLeftCanvas, 0, 0);
+      resultCtx.drawImage(tempRightCanvas, tempLeftCanvas.width, 0);
       
       // Save at highest quality
-      resultCanvasData = resultCanvas.toDataURL('image/png', 1.0);
+      resultCanvasData = getCanvasDataUrl(resultCanvas);
       delete resultCanvas.dataset.gifUrl;
     });
 
@@ -503,19 +553,27 @@
         return;
       }
 
-      // Use the larger of the two image dimensions
-      const width = Math.max(leftImage.width, rightImage.width);
-      const height = Math.max(leftImage.height, rightImage.height);
+      // Determine output size based on selection
+      let width = Math.max(leftImage.width, rightImage.width);
+      let height = Math.max(leftImage.height, rightImage.height);
       
+      const sizeOption = outputSizeSelect.value;
+      if (sizeOption !== 'original') {
+        const targetHeight = sizeOption === '1080p' ? 1080 : 720;
+        const scale = targetHeight / height;
+        width = Math.round(width * scale);
+        height = targetHeight;
+      }
+
       // Create temporary canvases at target resolution
       const tempLeftCanvas = document.createElement('canvas');
       tempLeftCanvas.width = width;
       tempLeftCanvas.height = height;
       const tempLeftCtx = tempLeftCanvas.getContext('2d');
-      tempLeftCtx.imageSmoothingEnabled = false;
+      tempLeftCtx.imageSmoothingEnabled = true;
       
       // Scale and center left image
-      const leftScale = Math.max(
+      const leftScale = Math.min(
         width / leftImage.width,
         height / leftImage.height
       );
@@ -533,10 +591,10 @@
       tempRightCanvas.width = width;
       tempRightCanvas.height = height;
       const tempRightCtx = tempRightCanvas.getContext('2d');
-      tempRightCtx.imageSmoothingEnabled = false;
+      tempRightCtx.imageSmoothingEnabled = true;
       
       // Scale and center right image
-      const rightScale = Math.max(
+      const rightScale = Math.min(
         width / rightImage.width,
         height / rightImage.height
       );
@@ -568,7 +626,7 @@
       }
 
       resultCtx.putImageData(resultData, 0, 0);
-      resultCanvasData = resultCanvas.toDataURL('image/png', 1.0);
+      resultCanvasData = getCanvasDataUrl(resultCanvas);
       delete resultCanvas.dataset.gifUrl;
     });
 
@@ -579,17 +637,9 @@
         return;
       }
 
-      // Create a temporary canvas at full resolution
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = resultCanvas.width;
-      tempCanvas.height = resultCanvas.height;
-      const tempCtx = tempCanvas.getContext('2d');
-      tempCtx.imageSmoothingEnabled = false;
-      tempCtx.drawImage(resultCanvas, 0, 0);
-      
       const link = document.createElement('a');
-      link.download = 'stereo-image.png';
-      link.href = tempCanvas.toDataURL('image/png', 1.0);
+      link.download = 'stereo-image.' + (outputQualitySelect.value === '1.0' ? 'png' : 'jpg');
+      link.href = resultCanvasData || getCanvasDataUrl(resultCanvas);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
