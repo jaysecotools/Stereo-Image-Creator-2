@@ -184,28 +184,37 @@
     let rightCanvasData = null;
     let resultCanvasData = null;
 
-    // Initialize canvas sizes
+    // Initialize canvas sizes with proper aspect ratio
     function initCanvases() {
-      const maxWidth = Math.min(window.innerWidth * 0.9, 400);
       const maxHeight = Math.min(window.innerHeight * 0.3, 300);
       
-      [leftCanvas, rightCanvas, resultCanvas].forEach(canvas => {
-        const tempData = canvas.toDataURL(); // Save current content
-        canvas.width = maxWidth;
-        canvas.height = maxHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#f8f8f8';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Restore content if available
-        if (canvas.id === 'leftCanvas' && leftCanvasData) {
-          restoreCanvas(canvas, leftCanvasData);
-        } else if (canvas.id === 'rightCanvas' && rightCanvasData) {
-          restoreCanvas(canvas, rightCanvasData);
-        } else if (canvas.id === 'resultCanvas' && resultCanvasData) {
-          restoreCanvas(canvas, resultCanvasData);
-        }
-      });
+      // Set height first, then calculate width based on image aspect ratio
+      if (leftImage) {
+        const ratio = leftImage.width / leftImage.height;
+        leftCanvas.height = maxHeight;
+        leftCanvas.width = maxHeight * ratio;
+      } else {
+        leftCanvas.height = maxHeight;
+        leftCanvas.width = maxHeight * 0.75; // Default 4:3 ratio
+      }
+      
+      if (rightImage) {
+        const ratio = rightImage.width / rightImage.height;
+        rightCanvas.height = maxHeight;
+        rightCanvas.width = maxHeight * ratio;
+      } else {
+        rightCanvas.height = maxHeight;
+        rightCanvas.width = maxHeight * 0.75; // Default 4:3 ratio
+      }
+      
+      // Result canvas starts empty but with reasonable size
+      resultCanvas.height = maxHeight;
+      resultCanvas.width = Math.min(window.innerWidth * 0.9, 800);
+      
+      // Restore content if available
+      if (leftCanvasData) restoreCanvas(leftCanvas, leftCanvasData);
+      if (rightCanvasData) restoreCanvas(rightCanvas, rightCanvasData);
+      if (resultCanvasData) restoreCanvas(resultCanvas, resultCanvasData);
     }
 
     // Function to restore canvas content
@@ -225,7 +234,10 @@
         const newWidth = img.width * ratio;
         const newHeight = img.height * ratio;
         
-        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+        const offsetX = (canvas.width - newWidth) / 2;
+        const offsetY = (canvas.height - newHeight) / 2;
+        
+        ctx.drawImage(img, offsetX, offsetY, newWidth, newHeight);
         
         // Update the corresponding image reference
         if (canvas.id === 'leftCanvas') {
@@ -245,16 +257,14 @@
 
       const img = new Image();
       img.onload = () => {
-        // Resize to fit canvas while maintaining aspect ratio
-        const ratio = Math.min(
-          canvas.width / img.width,
-          canvas.height / img.height
-        );
-        const newWidth = img.width * ratio;
-        const newHeight = img.height * ratio;
+        // First adjust canvas size to match image aspect ratio
+        const ratio = img.width / img.height;
+        canvas.height = Math.min(window.innerHeight * 0.3, 300);
+        canvas.width = canvas.height * ratio;
         
+        // Then draw the image centered
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         
         // Save the canvas data
         const dataUrl = canvas.toDataURL();
@@ -333,22 +343,14 @@
       const canvas = currentCameraSide === 'left' ? leftCanvas : rightCanvas;
       const ctx = currentCameraSide === 'left' ? leftCtx : rightCtx;
 
-      // Calculate dimensions to maintain aspect ratio
+      // First adjust canvas size to match camera aspect ratio
       const videoRatio = cameraPreview.videoWidth / cameraPreview.videoHeight;
-      let drawWidth = canvas.width;
-      let drawHeight = canvas.height;
+      canvas.height = Math.min(window.innerHeight * 0.3, 300);
+      canvas.width = canvas.height * videoRatio;
       
-      if (canvas.width / canvas.height > videoRatio) {
-        drawWidth = canvas.height * videoRatio;
-      } else {
-        drawHeight = canvas.width / videoRatio;
-      }
-      
-      const offsetX = (canvas.width - drawWidth) / 2;
-      const offsetY = (canvas.height - drawHeight) / 2;
-      
+      // Then draw the image
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(cameraPreview, offsetX, offsetY, drawWidth, drawHeight);
+      ctx.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
 
       // Save the canvas data
       const dataUrl = canvas.toDataURL();
@@ -388,14 +390,53 @@
         return;
       }
 
-      const maxWidth = Math.max(leftCanvas.width, rightCanvas.width);
-      const maxHeight = Math.max(leftCanvas.height, rightCanvas.height);
+      // Find the dominant aspect ratio (use the first image's ratio)
+      const targetRatio = leftImage.width / leftImage.height;
+      const targetHeight = Math.min(window.innerHeight * 0.3, 300);
+      const targetWidth = targetHeight * targetRatio;
 
-      leftCanvas.width = rightCanvas.width = maxWidth;
-      leftCanvas.height = rightCanvas.height = maxHeight;
+      // Resize both canvases to match this aspect ratio
+      leftCanvas.width = rightCanvas.width = targetWidth;
+      leftCanvas.height = rightCanvas.height = targetHeight;
 
-      leftCtx.drawImage(leftImage, 0, 0, maxWidth, maxHeight);
-      rightCtx.drawImage(rightImage, 0, 0, maxWidth, maxHeight);
+      // Draw images centered and properly scaled
+      leftCtx.clearRect(0, 0, leftCanvas.width, leftCanvas.height);
+      rightCtx.clearRect(0, 0, rightCanvas.width, rightCanvas.height);
+      
+      const leftRatio = leftImage.width / leftImage.height;
+      const rightRatio = rightImage.width / rightImage.height;
+      
+      // Calculate scale factors to fill canvas while maintaining aspect ratio
+      const leftScale = Math.max(
+        targetWidth / leftImage.width,
+        targetHeight / leftImage.height
+      );
+      const rightScale = Math.max(
+        targetWidth / rightImage.width,
+        targetHeight / rightImage.height
+      );
+      
+      const leftNewWidth = leftImage.width * leftScale;
+      const leftNewHeight = leftImage.height * leftScale;
+      const rightNewWidth = rightImage.width * rightScale;
+      const rightNewHeight = rightImage.height * rightScale;
+      
+      // Center the images
+      leftCtx.drawImage(
+        leftImage,
+        (targetWidth - leftNewWidth) / 2,
+        (targetHeight - leftNewHeight) / 2,
+        leftNewWidth,
+        leftNewHeight
+      );
+      
+      rightCtx.drawImage(
+        rightImage,
+        (targetWidth - rightNewWidth) / 2,
+        (targetHeight - rightNewHeight) / 2,
+        rightNewWidth,
+        rightNewHeight
+      );
       
       // Update image references and save canvas data
       leftCanvasData = leftCanvas.toDataURL();
@@ -412,21 +453,25 @@
         return;
       }
 
-      resultCanvas.width = leftCanvas.width + rightCanvas.width;
-      resultCanvas.height = Math.max(leftCanvas.height, rightCanvas.height);
+      // Calculate total width needed (sum of both image widths)
+      const totalWidth = leftCanvas.width + rightCanvas.width;
+      const maxHeight = Math.max(leftCanvas.height, rightCanvas.height);
+      
+      // Set result canvas dimensions
+      resultCanvas.width = totalWidth;
+      resultCanvas.height = maxHeight;
       resultCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
       
-      // Center images vertically if heights differ
-      const leftOffset = (resultCanvas.height - leftCanvas.height) / 2;
-      const rightOffset = (resultCanvas.height - rightCanvas.height) / 2;
-      
-      resultCtx.drawImage(leftCanvas, 0, leftOffset);
-      resultCtx.drawImage(rightCanvas, leftCanvas.width, rightOffset);
+      // Draw images side by side without gaps
+      resultCtx.drawImage(leftCanvas, 0, (maxHeight - leftCanvas.height) / 2);
+      resultCtx.drawImage(
+        rightCanvas, 
+        leftCanvas.width, 
+        (maxHeight - rightCanvas.height) / 2
+      );
       
       // Save the result canvas data
       resultCanvasData = resultCanvas.toDataURL();
-      
-      // Clear any previous GIF data
       delete resultCanvas.dataset.gifUrl;
     });
 
@@ -436,37 +481,59 @@
         return;
       }
 
-      const maxWidth = Math.max(leftCanvas.width, rightCanvas.width);
-      const maxHeight = Math.max(leftCanvas.height, rightCanvas.height);
+      // Use the dimensions of the left image as reference
+      const width = leftCanvas.width;
+      const height = leftCanvas.height;
       
-      resultCanvas.width = maxWidth;
-      resultCanvas.height = maxHeight;
-      resultCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+      resultCanvas.width = width;
+      resultCanvas.height = height;
+      resultCtx.clearRect(0, 0, width, height);
 
       // Create temporary canvases for consistent sizing
       const tempLeftCanvas = document.createElement('canvas');
-      tempLeftCanvas.width = maxWidth;
-      tempLeftCanvas.height = maxHeight;
+      tempLeftCanvas.width = width;
+      tempLeftCanvas.height = height;
       const tempLeftCtx = tempLeftCanvas.getContext('2d');
       
-      // Center left image if needed
-      const leftX = (maxWidth - leftCanvas.width) / 2;
-      const leftY = (maxHeight - leftCanvas.height) / 2;
-      tempLeftCtx.drawImage(leftCanvas, leftX, leftY);
+      // Scale and center left image
+      const leftScale = Math.max(
+        width / leftImage.width,
+        height / leftImage.height
+      );
+      const leftNewWidth = leftImage.width * leftScale;
+      const leftNewHeight = leftImage.height * leftScale;
+      tempLeftCtx.drawImage(
+        leftImage,
+        (width - leftNewWidth) / 2,
+        (height - leftNewHeight) / 2,
+        leftNewWidth,
+        leftNewHeight
+      );
 
       const tempRightCanvas = document.createElement('canvas');
-      tempRightCanvas.width = maxWidth;
-      tempRightCanvas.height = maxHeight;
+      tempRightCanvas.width = width;
+      tempRightCanvas.height = height;
       const tempRightCtx = tempRightCanvas.getContext('2d');
       
-      // Center right image if needed
-      const rightX = (maxWidth - rightCanvas.width) / 2;
-      const rightY = (maxHeight - rightCanvas.height) / 2;
-      tempRightCtx.drawImage(rightCanvas, rightX, rightY);
+      // Scale and center right image
+      const rightScale = Math.max(
+        width / rightImage.width,
+        height / rightImage.height
+      );
+      const rightNewWidth = rightImage.width * rightScale;
+      const rightNewHeight = rightImage.height * rightScale;
+      tempRightCtx.drawImage(
+        rightImage,
+        (width - rightNewWidth) / 2,
+        (height - rightNewHeight) / 2,
+        rightNewWidth,
+        rightNewHeight
+      );
 
-      const leftData = tempLeftCtx.getImageData(0, 0, maxWidth, maxHeight);
-      const rightData = tempRightCtx.getImageData(0, 0, maxWidth, maxHeight);
-      const resultData = resultCtx.createImageData(maxWidth, maxHeight);
+      // Create the anaglyph effect
+      const leftData = tempLeftCtx.getImageData(0, 0, width, height);
+      const rightData = tempRightCtx.getImageData(0, 0, width, height);
+      const resultData = resultCtx.createImageData(width, height);
 
       for (let i = 0; i < leftData.data.length; i += 4) {
         resultData.data[i] = leftData.data[i];         // Red from left
@@ -476,11 +543,7 @@
       }
 
       resultCtx.putImageData(resultData, 0, 0);
-      
-      // Save the result canvas data
       resultCanvasData = resultCanvas.toDataURL();
-      
-      // Clear any previous GIF data
       delete resultCanvas.dataset.gifUrl;
     });
 
@@ -490,21 +553,9 @@
         return;
       }
 
-      let url, filename;
-      
-      if (resultCanvas.dataset.gifUrl) {
-        // Save GIF
-        url = resultCanvas.dataset.gifUrl;
-        filename = 'stereo-image.gif';
-      } else {
-        // Save PNG
-        url = resultCanvas.toDataURL('image/png');
-        filename = 'stereo-image.png';
-      }
-
       const link = document.createElement('a');
-      link.download = filename;
-      link.href = url;
+      link.download = 'stereo-image.png';
+      link.href = resultCanvas.toDataURL('image/png');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -526,7 +577,6 @@
     // Add visibility change handler to restore canvases if needed
     document.addEventListener('visibilitychange', function() {
       if (!document.hidden) {
-        // Restore canvases when page becomes visible again
         if (leftCanvasData) restoreCanvas(leftCanvas, leftCanvasData);
         if (rightCanvasData) restoreCanvas(rightCanvas, rightCanvasData);
         if (resultCanvasData) restoreCanvas(resultCanvas, resultCanvasData);
