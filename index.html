@@ -145,33 +145,35 @@
 
     .canvas-container {
       display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: center;
-      margin-bottom: 20px;
+      gap: 15px;
+      margin-bottom: 15px;
+      width: 100%;
+      overflow-x: auto;
+      padding-bottom: 10px;
     }
 
     .canvas-wrapper {
-      flex: 1 1 45%;
-      min-width: 280px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      flex: 0 0 calc(50% - 8px);
+      min-width: 0;
     }
 
     .canvas-label {
       font-weight: 600;
       font-size: 16px;
       color: var(--text);
+      margin-bottom: 5px;
+      text-align: center;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
+      white-space: nowrap;
     }
 
     canvas {
       border-radius: var(--radius-sm);
       border: 1px solid var(--border);
+      width: 100%;
       max-width: 100%;
       background: #f8f8f8;
       background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%),
@@ -181,6 +183,7 @@
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       image-rendering: -webkit-optimize-contrast;
       image-rendering: crisp-edges;
+      aspect-ratio: 4/3;
     }
 
     #cameraPreview {
@@ -194,6 +197,7 @@
 
     .camera-options {
       display: flex;
+      flex-wrap: wrap;
       gap: 12px;
       width: 100%;
     }
@@ -284,7 +288,7 @@
       }
       
       .canvas-wrapper {
-        flex: 1 1 100%;
+        flex: 0 0 calc(50% - 8px);
       }
     }
 
@@ -320,6 +324,22 @@
       
       .control-group select {
         width: 100%;
+      }
+      
+      .camera-options {
+        flex-direction: column;
+      }
+      
+      .camera-options .btn {
+        width: 100%;
+      }
+      
+      .canvas-container {
+        gap: 8px;
+      }
+      
+      .canvas-wrapper {
+        flex: 0 0 calc(50% - 4px);
       }
     }
   </style>
@@ -360,26 +380,26 @@
           </svg>
           Take Photo
         </button>
-        
-        <div class="camera-options">
-          <button id="cameraSwitchBtn" class="btn btn-secondary">
-            <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-            </svg>
-            Switch Camera
-          </button>
-          <button id="photoCaptureBtn" class="btn">
-            <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-            </svg>
-            Capture Left
-          </button>
-        </div>
-        
-        <video id="cameraPreview" autoplay playsinline></video>
-        <p id="cameraStatus" class="status">Camera not active</p>
       </div>
+      
+      <div class="camera-options">
+        <button id="cameraSwitchBtn" class="btn btn-secondary">
+          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+          </svg>
+          Switch Camera
+        </button>
+        <button id="photoCaptureBtn" class="btn">
+          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          Capture Left
+        </button>
+      </div>
+      
+      <video id="cameraPreview" autoplay playsinline></video>
+      <p id="cameraStatus" class="status">Camera not active</p>
       
       <div class="quality-controls">
         <div class="control-group">
