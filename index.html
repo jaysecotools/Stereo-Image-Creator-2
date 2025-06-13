@@ -534,6 +534,7 @@
     let leftCanvasData = null;
     let rightCanvasData = null;
     let resultCanvasData = null;
+    let currentOrientation = window.matchMedia("(orientation: portrait)").matches ? 'portrait' : 'landscape';
 
     // Initialize canvas sizes with proper aspect ratio
     function initCanvases() {
@@ -636,32 +637,36 @@
       input.click();
     });
 
-    // New function to handle portrait orientation
+    // Improved function to handle portrait orientation
     function capturePortraitImage(video, canvas, ctx, isFrontCamera) {
       // Get video dimensions
       const videoWidth = video.videoWidth;
       const videoHeight = video.videoHeight;
       
-      // Determine if we need to rotate (mobile browsers sometimes report wrong orientation)
-      const isLandscape = videoWidth > videoHeight;
-      
-      // Set canvas dimensions (always portrait)
-      canvas.width = isLandscape ? videoHeight : videoWidth;
-      canvas.height = isLandscape ? videoWidth : videoHeight;
+      // Set canvas to portrait dimensions (width < height)
+      canvas.width = Math.min(videoWidth, videoHeight);
+      canvas.height = Math.max(videoWidth, videoHeight);
       
       // Clear and prepare canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.imageSmoothingEnabled = true;
       
-      if (isLandscape) {
-        // Need to rotate landscape to portrait
+      // Check if we need to rotate (based on natural orientation)
+      const needsRotation = videoWidth > videoHeight;
+      
+      if (needsRotation) {
+        // Rotate landscape to portrait
         ctx.save();
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate(Math.PI / 2);
+        if (isFrontCamera) {
+          // Mirror front camera
+          ctx.scale(-1, 1);
+        }
         ctx.drawImage(video, -videoWidth / 2, -videoHeight / 2, videoWidth, videoHeight);
         ctx.restore();
       } else {
-        // Already portrait - draw normally
+        // Already portrait
         if (isFrontCamera) {
           // Mirror front camera
           ctx.save();
@@ -686,7 +691,7 @@
             facingMode: facingMode,
             width: { ideal: 720 },
             height: { ideal: 1280 },
-            aspectRatio: 9 / 16
+            aspectRatio: { ideal: 3/4 } // Changed to match canvas aspect ratio
           }
         };
 
@@ -701,9 +706,16 @@
 
         // Handle orientation
         cameraPreview.onloadedmetadata = () => {
-          cameraPreview.style.width = 'auto';
-          cameraPreview.style.height = '100%';
+          // Adjust preview based on orientation
+          if (currentOrientation === 'portrait') {
+            cameraPreview.style.width = 'auto';
+            cameraPreview.style.height = '100%';
+          } else {
+            cameraPreview.style.width = '100%';
+            cameraPreview.style.height = 'auto';
+          }
           cameraPreview.style.maxWidth = '100%';
+          cameraPreview.style.maxHeight = '100%';
           cameraPreview.style.objectFit = 'cover';
         };
 
@@ -729,7 +741,7 @@
       const canvas = currentCameraSide === 'left' ? leftCanvas : rightCanvas;
       const ctx = currentCameraSide === 'left' ? leftCtx : rightCtx;
       
-      // Use the new portrait capture function
+      // Use the improved portrait capture function
       capturePortraitImage(cameraPreview, canvas, ctx, useFrontCamera);
       
       // Save and update UI
@@ -1004,8 +1016,16 @@
       }
     });
 
-    // Handle window resize
+    // Handle window resize and orientation changes
     window.addEventListener('resize', function() {
+      const newOrientation = window.matchMedia("(orientation: portrait)").matches ? 'portrait' : 'landscape';
+      if (newOrientation !== currentOrientation) {
+        currentOrientation = newOrientation;
+        if (currentStream) {
+          // Restart camera with new orientation
+          startCamera(useFrontCamera ? 'user' : 'environment');
+        }
+      }
       initCanvases();
     });
   </script>
