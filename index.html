@@ -4,192 +4,475 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Stereo Image Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      max-width: 100%;
-      margin: 0 auto;
-      padding: 15px;
-      touch-action: manipulation;
-      -webkit-text-size-adjust: 100%;
+    :root {
+      --primary: #4361ee;
+      --primary-dark: #3a56d4;
+      --secondary: #3f37c9;
+      --text: #2b2d42;
+      --text-light: #8d99ae;
+      --border: #e2e8f0;
+      --bg: #f8fafc;
+      --bg-light: #ffffff;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --transition: all 0.2s ease;
     }
-    .container {
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.5;
+      color: var(--text);
+      background-color: var(--bg);
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+      touch-action: manipulation;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app-container {
       display: flex;
       flex-direction: column;
-      gap: 15px;
+      gap: 24px;
     }
+
+    header {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      color: var(--text-light);
+      font-size: 16px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background-color: var(--bg-light);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title svg {
+      width: 20px;
+      height: 20px;
+    }
+
     .upload-section {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
+      gap: 12px;
+      margin-bottom: 16px;
     }
+
+    .btn {
+      padding: 12px 20px;
+      cursor: pointer;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 500;
+      flex: 1 1 auto;
+      min-width: 140px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: var(--transition);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .btn:hover {
+      background-color: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn:disabled {
+      background-color: #e2e8f0;
+      color: #94a3b8;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background-color: white;
+      color: var(--primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background-color: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .btn-icon {
+      width: 18px;
+      height: 18px;
+    }
+
     .canvas-container {
       display: flex;
       flex-wrap: wrap;
-      gap: 15px;
+      gap: 20px;
       justify-content: center;
-      margin-bottom: 15px;
+      margin-bottom: 20px;
     }
+
+    .canvas-wrapper {
+      flex: 1 1 45%;
+      min-width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .canvas-label {
+      font-weight: 600;
+      font-size: 16px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
     canvas {
-      border: 1px solid #ddd;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
       max-width: 100%;
       background: #f8f8f8;
-      box-sizing: border-box;
+      background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%),
+                        linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 10px 10px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       image-rendering: -webkit-optimize-contrast;
       image-rendering: crisp-edges;
     }
-    button {
-      padding: 10px 15px;
-      cursor: pointer;
-      background: #007aff;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      font-size: 16px;
-      flex: 1 1 auto;
-      min-width: 120px;
-      touch-action: manipulation;
-    }
-    button:disabled {
-      background: #cccccc;
-    }
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-      margin-bottom: 15px;
-    }
+
     #cameraPreview {
       display: none;
       width: 100%;
       max-height: 50vh;
       background: black;
-      margin: 10px 0;
+      margin: 12px 0;
+      border-radius: var(--radius-sm);
     }
-    #photoCaptureBtn, #cameraSwitchBtn {
-      display: none;
-    }
-    .loading {
-      display: none;
-      color: #007aff;
-      margin: 10px 0;
-      text-align: center;
-    }
+
     .camera-options {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       width: 100%;
     }
+
     .status {
-      color: #666;
-      font-style: italic;
-      text-align: center;
+      color: var(--text-light);
       font-size: 14px;
-    }
-    .canvas-wrapper {
-      flex: 1 1 45%;
-      min-width: 0;
-    }
-    .canvas-label {
-      font-weight: bold;
-      margin-bottom: 5px;
       text-align: center;
+      margin-top: 8px;
     }
+
+    .controls-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .quality-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-group label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .control-group select {
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      font-size: 14px;
+      background-color: white;
+      transition: var(--transition);
+    }
+
+    .control-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
+    }
+
     .result-wrapper {
       width: 100%;
-      margin-top: 15px;
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
+
     #resultCanvas {
       max-width: 100%;
       max-height: 70vh;
       width: auto;
       height: auto;
     }
-    .quality-controls {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    .quality-controls label {
+
+    .loading {
+      display: none;
+      color: var(--primary);
+      margin: 12px 0;
+      text-align: center;
       font-size: 14px;
     }
-    .quality-controls select {
-      padding: 5px;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-    }
-    @media (max-width: 480px) {
-      button {
-        padding: 12px 10px;
+
+    @media (max-width: 768px) {
+      body {
+        padding: 16px;
+      }
+      
+      .card {
+        padding: 20px;
+      }
+      
+      .btn {
+        padding: 12px 16px;
         font-size: 14px;
       }
-      .controls {
-        gap: 8px;
+      
+      .canvas-wrapper {
+        flex: 1 1 100%;
+      }
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 24px;
+      }
+      
+      .subtitle {
+        font-size: 14px;
+      }
+      
+      .card {
+        padding: 16px;
+      }
+      
+      .section-title {
+        font-size: 16px;
+      }
+      
+      .btn {
+        min-width: 100%;
+      }
+      
+      .quality-controls {
+        flex-direction: column;
+        gap: 12px;
+      }
+      
+      .control-group {
+        width: 100%;
+      }
+      
+      .control-group select {
+        width: 100%;
       }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1 style="text-align: center;">Stereo Image Generator</h1>
+  <div class="app-container">
+    <header>
+      <h1>Stereo Image Generator</h1>
+      <p class="subtitle">Create side-by-side stereo images or red-cyan anaglyph 3D images from your photos</p>
+    </header>
     
-    <div class="upload-section">
-      <button id="uploadLeft">Upload Left</button>
-      <button id="uploadRight">Upload Right</button>
-      <button id="takePhoto">Take Photo</button>
+    <div class="card">
+      <h2 class="section-title">
+        <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        Image Sources
+      </h2>
       
-      <div class="camera-options">
-        <button id="cameraSwitchBtn">Switch Camera</button>
-        <button id="photoCaptureBtn">Capture Photo</button>
+      <div class="upload-section">
+        <button id="uploadLeft" class="btn">
+          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+          Upload Left
+        </button>
+        <button id="uploadRight" class="btn">
+          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+          Upload Right
+        </button>
+        <button id="takePhoto" class="btn btn-secondary">
+          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          Take Photo
+        </button>
+        
+        <div class="camera-options">
+          <button id="cameraSwitchBtn" class="btn btn-secondary">
+            <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+            </svg>
+            Switch Camera
+          </button>
+          <button id="photoCaptureBtn" class="btn">
+            <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            Capture Left
+          </button>
+        </div>
+        
+        <video id="cameraPreview" autoplay playsinline></video>
+        <p id="cameraStatus" class="status">Camera not active</p>
       </div>
       
-      <video id="cameraPreview" autoplay playsinline></video>
-      <p id="cameraStatus" class="status">Camera not active</p>
-    </div>
-    
-    <div class="quality-controls">
-      <label for="outputQuality">Output Quality:</label>
-      <select id="outputQuality">
-        <option value="1.0">Maximum (PNG)</option>
-        <option value="0.9">High (WebP)</option>
-        <option value="0.8">Good (JPEG)</option>
-        <option value="0.6">Medium (JPEG)</option>
-      </select>
+      <div class="quality-controls">
+        <div class="control-group">
+          <label for="outputQuality">Output Quality:</label>
+          <select id="outputQuality">
+            <option value="1.0">Maximum (PNG)</option>
+            <option value="0.9">High (WebP)</option>
+            <option value="0.8">Good (JPEG)</option>
+            <option value="0.6">Medium (JPEG)</option>
+          </select>
+        </div>
+        
+        <div class="control-group">
+          <label for="outputSize">Output Size:</label>
+          <select id="outputSize">
+            <option value="original">Original</option>
+            <option value="1080p">1080p</option>
+            <option value="720p">720p</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+      </div>
       
-      <label for="outputSize">Output Size:</label>
-      <select id="outputSize">
-        <option value="original">Original</option>
-        <option value="1080p">1080p</option>
-        <option value="720p">720p</option>
-        <option value="custom">Custom</option>
-      </select>
-    </div>
-    
-    <div class="canvas-container">
-      <div class="canvas-wrapper">
-        <p class="canvas-label">Left Image</p>
-        <canvas id="leftCanvas"></canvas>
+      <div class="canvas-container">
+        <div class="canvas-wrapper">
+          <p class="canvas-label">
+            <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            </svg>
+            Left Image
+          </p>
+          <canvas id="leftCanvas"></canvas>
+        </div>
+        <div class="canvas-wrapper">
+          <p class="canvas-label">
+            <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            </svg>
+            Right Image
+          </p>
+          <canvas id="rightCanvas"></canvas>
+        </div>
       </div>
-      <div class="canvas-wrapper">
-        <p class="canvas-label">Right Image</p>
-        <canvas id="rightCanvas"></canvas>
+    </div>
+    
+    <div class="card">
+      <h2 class="section-title">
+        <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+        </svg>
+        Processing
+      </h2>
+      
+      <div class="controls-section">
+        <button id="autoAlign" class="btn btn-secondary" disabled>
+          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+          </svg>
+          Auto-Align
+        </button>
+        <button id="generateSideBySide" class="btn" disabled>
+          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>
+          </svg>
+          Side-by-Side
+        </button>
+        <button id="generateAnaglyph" class="btn" disabled>
+          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+          </svg>
+          Red/Cyan 3D
+        </button>
+        <button id="saveResult" class="btn" disabled>
+          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+          </svg>
+          Save Result
+        </button>
       </div>
-    </div>
-    
-    <div class="controls">
-      <button id="autoAlign">Auto-Align</button>
-      <button id="generateSideBySide">Side-by-Side</button>
-      <button id="generateAnaglyph">Red/Cyan 3D</button>
-      <button id="saveResult">Save Result</button>
-    </div>
-    
-    <div class="result-wrapper">
-      <h3 style="text-align: center;">Result:</h3>
-      <canvas id="resultCanvas"></canvas>
+      
+      <div class="result-wrapper">
+        <h2 class="section-title">
+          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+          </svg>
+          Result
+        </h2>
+        <canvas id="resultCanvas"></canvas>
+      </div>
     </div>
   </div>
 
@@ -652,6 +935,11 @@
       generateSideBySideBtn.disabled = !hasBothImages;
       generateAnaglyphBtn.disabled = !hasBothImages;
       saveResultBtn.disabled = resultCanvas.width === 0;
+      
+      // Update photo capture button text
+      if (photoCaptureBtn.style.display !== 'none') {
+        photoCaptureBtn.textContent = `Capture ${currentCameraSide === 'left' ? 'Left' : 'Right'}`;
+      }
     }
 
     // Initialize
