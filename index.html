@@ -194,6 +194,7 @@
       margin: 12px 0;
       border-radius: var(--radius-sm);
       aspect-ratio: 3/4; /* Portrait orientation */
+      object-fit: contain; /* Ensure video maintains aspect ratio */
     }
 
     .camera-options {
@@ -659,8 +660,9 @@
         const constraints = {
           video: { 
             facingMode: facingMode,
-            width: { ideal: 1080 },
-            height: { ideal: 1440 } // Prefer portrait orientation
+            width: { ideal: 720 },  // Prefer portrait width
+            height: { ideal: 1280 }, // Prefer portrait height
+            aspectRatio: 9 / 16      // Force portrait aspect ratio
           }
         };
 
@@ -672,6 +674,15 @@
         takePhotoBtn.style.display = 'none';
         currentStream = stream;
         cameraStatus.textContent = `Camera active (${useFrontCamera ? 'Front' : 'Rear'})`;
+
+        // Wait for video metadata to load to get actual dimensions
+        cameraPreview.onloadedmetadata = () => {
+          // Ensure the video maintains portrait orientation
+          cameraPreview.style.width = 'auto';
+          cameraPreview.style.height = '100%';
+          cameraPreview.style.maxWidth = '100%';
+          cameraPreview.style.objectFit = 'cover';
+        };
 
         photoCaptureBtn.textContent = `Capture ${currentCameraSide === 'left' ? 'Left' : 'Right'}`;
       } catch (err) {
@@ -695,18 +706,38 @@
       const canvas = currentCameraSide === 'left' ? leftCanvas : rightCanvas;
       const ctx = currentCameraSide === 'left' ? leftCtx : rightCtx;
 
-      // Get the actual video dimensions
+      // Get the actual video dimensions (may be rotated on mobile)
       const videoWidth = cameraPreview.videoWidth;
       const videoHeight = cameraPreview.videoHeight;
       
-      // Set canvas to match camera resolution (portrait)
-      canvas.width = videoWidth;
-      canvas.height = videoHeight;
+      // Determine if we need to rotate the image based on device orientation
+      const isPortrait = videoHeight > videoWidth;
+      
+      // Set canvas dimensions - maintain portrait orientation
+      if (isPortrait) {
+        canvas.width = videoWidth;
+        canvas.height = videoHeight;
+      } else {
+        // If landscape, swap dimensions to force portrait
+        canvas.width = videoHeight;
+        canvas.height = videoWidth;
+      }
       
       // Draw with high quality
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
+      
+      if (isPortrait) {
+        // Draw normally if already portrait
+        ctx.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
+      } else {
+        // Rotate landscape to portrait
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate(Math.PI / 2);
+        ctx.drawImage(cameraPreview, -videoHeight / 2, -videoWidth / 2, videoHeight, videoWidth);
+        ctx.restore();
+      }
 
       // Save at high quality
       const dataUrl = getCanvasDataUrl(canvas);
