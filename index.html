@@ -183,18 +183,17 @@
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       image-rendering: -webkit-optimize-contrast;
       image-rendering: crisp-edges;
-      aspect-ratio: 3/4; /* Portrait orientation */
+      aspect-ratio: 3/4;
     }
 
     #cameraPreview {
       display: none;
       width: 100%;
-      max-height: 50vh;
+      max-height: 70vh;
       background: black;
       margin: 12px 0;
       border-radius: var(--radius-sm);
-      aspect-ratio: 3/4; /* Portrait orientation */
-      object-fit: cover;
+      object-fit: contain;
     }
 
     .camera-options {
@@ -637,45 +636,59 @@
       input.click();
     });
 
-    // Improved function to handle portrait orientation
+    // Improved camera capture function
     function capturePortraitImage(video, canvas, ctx, isFrontCamera) {
-      // Get video dimensions
+      // Use the full video dimensions
       const videoWidth = video.videoWidth;
       const videoHeight = video.videoHeight;
       
-      // Set canvas to portrait dimensions (width < height)
-      canvas.width = Math.min(videoWidth, videoHeight);
-      canvas.height = Math.max(videoWidth, videoHeight);
+      // Create a temporary canvas with the video dimensions
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = videoWidth;
+      tempCanvas.height = videoHeight;
+      const tempCtx = tempCanvas.getContext('2d');
       
-      // Clear and prepare canvas
+      // Draw the video frame to the temporary canvas
+      if (isFrontCamera) {
+        // Mirror front camera
+        tempCtx.save();
+        tempCtx.scale(-1, 1);
+        tempCtx.drawImage(video, -videoWidth, 0, videoWidth, videoHeight);
+        tempCtx.restore();
+      } else {
+        tempCtx.drawImage(video, 0, 0, videoWidth, videoHeight);
+      }
+      
+      // Calculate portrait dimensions (height > width)
+      const portraitWidth = Math.min(videoWidth, videoHeight);
+      const portraitHeight = Math.max(videoWidth, videoHeight);
+      
+      // Set the final canvas dimensions
+      canvas.width = portraitWidth;
+      canvas.height = portraitHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.imageSmoothingEnabled = true;
       
-      // Check if we need to rotate (based on natural orientation)
-      const needsRotation = videoWidth > videoHeight;
-      
-      if (needsRotation) {
-        // Rotate landscape to portrait
+      // Draw the temporary canvas centered and cropped to portrait
+      if (videoWidth > videoHeight) {
+        // Landscape source - rotate to portrait
         ctx.save();
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate(Math.PI / 2);
-        if (isFrontCamera) {
-          // Mirror front camera
-          ctx.scale(-1, 1);
-        }
-        ctx.drawImage(video, -videoWidth / 2, -videoHeight / 2, videoWidth, videoHeight);
+        ctx.drawImage(tempCanvas, -videoWidth / 2, -videoHeight / 2, videoWidth, videoHeight);
         ctx.restore();
       } else {
-        // Already portrait
-        if (isFrontCamera) {
-          // Mirror front camera
-          ctx.save();
-          ctx.scale(-1, 1);
-          ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-          ctx.restore();
-        } else {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        }
+        // Already portrait or square
+        ctx.drawImage(tempCanvas, 
+          (videoWidth - portraitWidth) / 2, 
+          (videoHeight - portraitHeight) / 2,
+          portraitWidth, 
+          portraitHeight,
+          0, 
+          0,
+          portraitWidth,
+          portraitHeight
+        );
       }
     }
 
@@ -686,12 +699,13 @@
           currentStream.getTracks().forEach(track => track.stop());
         }
 
+        // Use more flexible constraints
         const constraints = {
           video: { 
             facingMode: facingMode,
-            width: { ideal: 720 },
-            height: { ideal: 1280 },
-            aspectRatio: { ideal: 3/4 } // Changed to match canvas aspect ratio
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            aspectRatio: { ideal: 4/3 } // Common sensor aspect ratio
           }
         };
 
@@ -704,19 +718,28 @@
         currentStream = stream;
         cameraStatus.textContent = `Camera active (${useFrontCamera ? 'Front' : 'Rear'})`;
 
-        // Handle orientation
+        // Improved preview handling
         cameraPreview.onloadedmetadata = () => {
-          // Adjust preview based on orientation
-          if (currentOrientation === 'portrait') {
+          // Get actual video dimensions
+          const videoWidth = cameraPreview.videoWidth;
+          const videoHeight = cameraPreview.videoHeight;
+          
+          // Calculate display dimensions maintaining aspect ratio
+          const containerWidth = cameraPreview.clientWidth;
+          const containerHeight = cameraPreview.clientHeight;
+          
+          const videoAspect = videoWidth / videoHeight;
+          const containerAspect = containerWidth / containerHeight;
+          
+          if (videoAspect > containerAspect) {
+            // Video is wider than container - fit to height
             cameraPreview.style.width = 'auto';
             cameraPreview.style.height = '100%';
           } else {
+            // Video is taller than container - fit to width
             cameraPreview.style.width = '100%';
             cameraPreview.style.height = 'auto';
           }
-          cameraPreview.style.maxWidth = '100%';
-          cameraPreview.style.maxHeight = '100%';
-          cameraPreview.style.objectFit = 'cover';
         };
 
         photoCaptureBtn.textContent = `Capture ${currentCameraSide === 'left' ? 'Left' : 'Right'}`;
@@ -741,7 +764,7 @@
       const canvas = currentCameraSide === 'left' ? leftCanvas : rightCanvas;
       const ctx = currentCameraSide === 'left' ? leftCtx : rightCtx;
       
-      // Use the improved portrait capture function
+      // Use the improved capture function
       capturePortraitImage(cameraPreview, canvas, ctx, useFrontCamera);
       
       // Save and update UI
