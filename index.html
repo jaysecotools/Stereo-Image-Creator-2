@@ -183,7 +183,7 @@
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       image-rendering: -webkit-optimize-contrast;
       image-rendering: crisp-edges;
-      aspect-ratio: 4/3;
+      aspect-ratio: 3/4; /* Portrait orientation */
     }
 
     #cameraPreview {
@@ -193,6 +193,7 @@
       background: black;
       margin: 12px 0;
       border-radius: var(--radius-sm);
+      aspect-ratio: 3/4; /* Portrait orientation */
     }
 
     .camera-options {
@@ -263,6 +264,7 @@
       max-height: 70vh;
       width: auto;
       height: auto;
+      aspect-ratio: var(--result-aspect-ratio, 4/3); /* Default to landscape */
     }
 
     .loading {
@@ -511,10 +513,10 @@
     const saveResultBtn = document.getElementById('saveResult');
     const outputQualitySelect = document.getElementById('outputQuality');
     const outputSizeSelect = document.getElementById('outputSize');
+    const resultCanvas = document.getElementById('resultCanvas');
 
     const leftCanvas = document.getElementById('leftCanvas');
     const rightCanvas = document.getElementById('rightCanvas');
-    const resultCanvas = document.getElementById('resultCanvas');
 
     const leftCtx = leftCanvas.getContext('2d', { willReadFrequently: true });
     const rightCtx = rightCanvas.getContext('2d', { willReadFrequently: true });
@@ -532,24 +534,22 @@
 
     // Initialize canvas sizes with proper aspect ratio and high quality
     function initCanvases() {
-      // For left and right canvases, use original image sizes if available
-      if (leftImage) {
-        leftCanvas.width = leftImage.width;
-        leftCanvas.height = leftImage.height;
-      } else {
-        leftCanvas.height = Math.min(window.innerHeight * 0.3, 300);
-        leftCanvas.width = leftCanvas.height * 0.75;
+      // For left and right canvases, use portrait orientation
+      const portraitHeight = Math.min(window.innerHeight * 0.3, 300);
+      const portraitWidth = portraitHeight * 0.75;
+      
+      if (!leftImage) {
+        leftCanvas.width = portraitWidth;
+        leftCanvas.height = portraitHeight;
       }
       
-      if (rightImage) {
-        rightCanvas.width = rightImage.width;
-        rightCanvas.height = rightImage.height;
-      } else {
-        rightCanvas.height = Math.min(window.innerHeight * 0.3, 300);
-        rightCanvas.width = rightCanvas.height * 0.75;
+      if (!rightImage) {
+        rightCanvas.width = portraitWidth;
+        rightCanvas.height = portraitHeight;
       }
       
       // For result canvas, make it large enough for high-quality output
+      // Default to landscape (will be adjusted when generating)
       resultCanvas.width = Math.min(window.innerWidth * 0.95, 1920);
       resultCanvas.height = Math.min(window.innerHeight * 0.7, 1080);
       
@@ -659,8 +659,8 @@
         const constraints = {
           video: { 
             facingMode: facingMode,
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
+            width: { ideal: 1080 },
+            height: { ideal: 1440 } // Prefer portrait orientation
           }
         };
 
@@ -699,7 +699,7 @@
       const videoWidth = cameraPreview.videoWidth;
       const videoHeight = cameraPreview.videoHeight;
       
-      // Set canvas to match camera resolution
+      // Set canvas to match camera resolution (portrait)
       canvas.width = videoWidth;
       canvas.height = videoHeight;
       
@@ -809,6 +809,9 @@
         return;
       }
 
+      // Set landscape aspect ratio for result
+      resultCanvas.style.setProperty('--result-aspect-ratio', '4/3');
+
       // Determine output size based on selection
       let outputWidth = leftImage.width + rightImage.width;
       let outputHeight = Math.max(leftImage.height, rightImage.height);
@@ -856,13 +859,16 @@
         return;
       }
 
+      // Set portrait aspect ratio for result
+      resultCanvas.style.setProperty('--result-aspect-ratio', '3/4');
+
       // Determine output size based on selection
       let width = Math.max(leftImage.width, rightImage.width);
       let height = Math.max(leftImage.height, rightImage.height);
       
       const sizeOption = outputSizeSelect.value;
       if (sizeOption !== 'original') {
-        const targetHeight = sizeOption === '1080p' ? 1080 : 720;
+        const targetHeight = sizeOption === '1080p' ? 1440 : 960; // Taller for portrait
         const scale = targetHeight / height;
         width = Math.round(width * scale);
         height = targetHeight;
