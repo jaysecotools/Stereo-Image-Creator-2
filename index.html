@@ -194,7 +194,7 @@
       margin: 12px 0;
       border-radius: var(--radius-sm);
       aspect-ratio: 3/4; /* Portrait orientation */
-      object-fit: contain; /* Ensure video maintains aspect ratio */
+      object-fit: cover;
     }
 
     .camera-options {
@@ -262,10 +262,12 @@
 
     #resultCanvas {
       max-width: 100%;
-      max-height: 70vh;
-      width: auto;
+      width: 100%;
       height: auto;
-      aspect-ratio: var(--result-aspect-ratio, 4/3); /* Default to landscape */
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: #f8f8f8;
+      aspect-ratio: var(--result-aspect-ratio);
     }
 
     .loading {
@@ -533,7 +535,7 @@
     let rightCanvasData = null;
     let resultCanvasData = null;
 
-    // Initialize canvas sizes with proper aspect ratio and high quality
+    // Initialize canvas sizes with proper aspect ratio
     function initCanvases() {
       // For left and right canvases, use portrait orientation
       const portraitHeight = Math.min(window.innerHeight * 0.3, 300);
@@ -549,10 +551,8 @@
         rightCanvas.height = portraitHeight;
       }
       
-      // For result canvas, make it large enough for high-quality output
-      // Default to landscape (will be adjusted when generating)
-      resultCanvas.width = Math.min(window.innerWidth * 0.95, 1920);
-      resultCanvas.height = Math.min(window.innerHeight * 0.7, 1080);
+      // For result canvas, make it responsive
+      resultCanvas.style.setProperty('--result-aspect-ratio', '4/3');
       
       // Restore content if available
       if (leftCanvasData) restoreCanvas(leftCanvas, leftCanvasData);
@@ -560,7 +560,7 @@
       if (resultCanvasData) restoreCanvas(resultCanvas, resultCanvasData);
     }
 
-    // Function to restore canvas content with high quality
+    // Function to restore canvas content
     function restoreCanvas(canvas, dataUrl) {
       if (!dataUrl) return;
       
@@ -570,12 +570,9 @@
         canvas.width = img.width;
         canvas.height = img.height;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Use high-quality drawing
         ctx.imageSmoothingEnabled = true;
         ctx.drawImage(img, 0, 0);
         
-        // Update the corresponding image reference
         if (canvas.id === 'leftCanvas') {
           leftImage = img;
         } else if (canvas.id === 'rightCanvas') {
@@ -586,7 +583,7 @@
       img.src = dataUrl;
     }
 
-    // Upload images with quality preservation
+    // Upload images
     function handleImageUpload(canvas, ctx, e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -602,7 +599,7 @@
         ctx.imageSmoothingEnabled = true;
         ctx.drawImage(img, 0, 0);
         
-        // Save the canvas data at high quality
+        // Save the canvas data
         const dataUrl = getCanvasDataUrl(canvas);
         if (canvas.id === 'leftCanvas') {
           leftImage = img;
@@ -616,22 +613,11 @@
       img.src = URL.createObjectURL(file);
     }
 
-    // Helper function to get canvas data URL with selected quality
+    // Helper function to get canvas data URL
     function getCanvasDataUrl(canvas) {
       const quality = parseFloat(outputQualitySelect.value);
       const format = quality === 1.0 ? 'image/png' : 'image/jpeg';
       return canvas.toDataURL(format, quality);
-    }
-
-    // Helper function to resize image with high quality
-    function resizeImage(image, targetWidth, targetHeight) {
-      const canvas = document.createElement('canvas');
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
-      return canvas;
     }
 
     uploadLeftBtn.addEventListener('click', () => {
@@ -650,7 +636,7 @@
       input.click();
     });
 
-    // Camera functions with quality improvements
+    // Camera functions
     async function startCamera(facingMode = 'environment') {
       try {
         if (currentStream) {
@@ -660,9 +646,9 @@
         const constraints = {
           video: { 
             facingMode: facingMode,
-            width: { ideal: 720 },  // Prefer portrait width
-            height: { ideal: 1280 }, // Prefer portrait height
-            aspectRatio: 9 / 16      // Force portrait aspect ratio
+            width: { ideal: 720 },
+            height: { ideal: 1280 },
+            aspectRatio: 9 / 16
           }
         };
 
@@ -675,9 +661,8 @@
         currentStream = stream;
         cameraStatus.textContent = `Camera active (${useFrontCamera ? 'Front' : 'Rear'})`;
 
-        // Wait for video metadata to load to get actual dimensions
+        // Handle orientation
         cameraPreview.onloadedmetadata = () => {
-          // Ensure the video maintains portrait orientation
           cameraPreview.style.width = 'auto';
           cameraPreview.style.height = '100%';
           cameraPreview.style.maxWidth = '100%';
@@ -706,32 +691,29 @@
       const canvas = currentCameraSide === 'left' ? leftCanvas : rightCanvas;
       const ctx = currentCameraSide === 'left' ? leftCtx : rightCtx;
 
-      // Get the actual video dimensions (may be rotated on mobile)
+      // Get the actual video dimensions
       const videoWidth = cameraPreview.videoWidth;
       const videoHeight = cameraPreview.videoHeight;
       
-      // Determine if we need to rotate the image based on device orientation
+      // Determine if we need to rotate
       const isPortrait = videoHeight > videoWidth;
       
-      // Set canvas dimensions - maintain portrait orientation
+      // Set canvas dimensions
       if (isPortrait) {
         canvas.width = videoWidth;
         canvas.height = videoHeight;
       } else {
-        // If landscape, swap dimensions to force portrait
         canvas.width = videoHeight;
         canvas.height = videoWidth;
       }
       
-      // Draw with high quality
+      // Draw with proper orientation
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.imageSmoothingEnabled = true;
       
       if (isPortrait) {
-        // Draw normally if already portrait
         ctx.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
       } else {
-        // Rotate landscape to portrait
         ctx.save();
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate(Math.PI / 2);
@@ -739,7 +721,7 @@
         ctx.restore();
       }
 
-      // Save at high quality
+      // Save the image
       const dataUrl = getCanvasDataUrl(canvas);
       if (currentCameraSide === 'left') {
         leftCanvasData = dataUrl;
@@ -770,7 +752,7 @@
       cameraStatus.textContent = 'Camera not active';
     }
 
-    // High-quality auto-align
+    // Auto-align images
     autoAlignBtn.addEventListener('click', () => {
       if (!leftImage || !rightImage) {
         alert('Please upload both images first!');
@@ -785,7 +767,7 @@
       leftCanvas.width = rightCanvas.width = targetWidth;
       leftCanvas.height = rightCanvas.height = targetHeight;
 
-      // Draw images centered and properly scaled at high quality
+      // Draw images centered and properly scaled
       leftCtx.clearRect(0, 0, targetWidth, targetHeight);
       rightCtx.clearRect(0, 0, targetWidth, targetHeight);
       
@@ -824,7 +806,7 @@
         rightNewHeight
       );
       
-      // Update image references and save canvas data at high quality
+      // Update image references
       leftCanvasData = getCanvasDataUrl(leftCanvas);
       rightCanvasData = getCanvasDataUrl(rightCanvas);
       leftImage = new Image();
@@ -833,7 +815,7 @@
       rightImage.src = rightCanvasData;
     });
 
-    // High-quality side-by-side generation
+    // Generate side-by-side image
     generateSideBySideBtn.addEventListener('click', () => {
       if (!leftImage || !rightImage) {
         alert('Please upload both images first!');
@@ -855,35 +837,37 @@
         outputHeight = targetHeight;
       }
 
-      // Create temporary canvases at target resolution
-      const tempLeftCanvas = resizeImage(
-        leftImage,
-        Math.round(leftImage.width * (outputHeight / leftImage.height)),
-        outputHeight
-      );
-      
-      const tempRightCanvas = resizeImage(
-        rightImage,
-        Math.round(rightImage.width * (outputHeight / rightImage.height)),
-        outputHeight
-      );
-      
       // Set result canvas dimensions
-      resultCanvas.width = tempLeftCanvas.width + tempRightCanvas.width;
+      resultCanvas.width = outputWidth;
       resultCanvas.height = outputHeight;
       
-      // Draw at full resolution with high quality
+      // Draw at full resolution
       resultCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
       resultCtx.imageSmoothingEnabled = true;
-      resultCtx.drawImage(tempLeftCanvas, 0, 0);
-      resultCtx.drawImage(tempRightCanvas, tempLeftCanvas.width, 0);
       
-      // Save at highest quality
+      // Draw left image
+      const leftScale = outputHeight / leftImage.height;
+      const leftWidth = leftImage.width * leftScale;
+      resultCtx.drawImage(
+        leftImage,
+        0, 0,
+        leftWidth, outputHeight
+      );
+      
+      // Draw right image immediately next to left
+      const rightScale = outputHeight / rightImage.height;
+      const rightWidth = rightImage.width * rightScale;
+      resultCtx.drawImage(
+        rightImage,
+        leftWidth, 0,
+        rightWidth, outputHeight
+      );
+      
+      // Save result
       resultCanvasData = getCanvasDataUrl(resultCanvas);
-      delete resultCanvas.dataset.gifUrl;
     });
 
-    // High-quality anaglyph generation
+    // Generate anaglyph image
     generateAnaglyphBtn.addEventListener('click', () => {
       if (!leftImage || !rightImage) {
         alert('Please upload both images first!');
@@ -899,13 +883,13 @@
       
       const sizeOption = outputSizeSelect.value;
       if (sizeOption !== 'original') {
-        const targetHeight = sizeOption === '1080p' ? 1440 : 960; // Taller for portrait
+        const targetHeight = sizeOption === '1080p' ? 1440 : 960;
         const scale = targetHeight / height;
         width = Math.round(width * scale);
         height = targetHeight;
       }
 
-      // Create temporary canvases at target resolution
+      // Create temporary canvases
       const tempLeftCanvas = document.createElement('canvas');
       tempLeftCanvas.width = width;
       tempLeftCanvas.height = height;
@@ -953,7 +937,7 @@
       resultCanvas.height = height;
       resultCtx.clearRect(0, 0, width, height);
 
-      // Create the anaglyph effect at full resolution
+      // Create the anaglyph effect
       const leftData = tempLeftCtx.getImageData(0, 0, width, height);
       const rightData = tempRightCtx.getImageData(0, 0, width, height);
       const resultData = resultCtx.createImageData(width, height);
@@ -967,10 +951,9 @@
 
       resultCtx.putImageData(resultData, 0, 0);
       resultCanvasData = getCanvasDataUrl(resultCanvas);
-      delete resultCanvas.dataset.gifUrl;
     });
 
-    // High-quality save function
+    // Save result
     saveResultBtn.addEventListener('click', () => {
       if (resultCanvas.width === 0 || resultCanvas.height === 0) {
         alert('No result to save! Generate an image first.');
@@ -991,9 +974,8 @@
       autoAlignBtn.disabled = !hasBothImages;
       generateSideBySideBtn.disabled = !hasBothImages;
       generateAnaglyphBtn.disabled = !hasBothImages;
-      saveResultBtn.disabled = resultCanvas.width === 0;
+      saveResultBtn.disabled = !resultCanvasData;
       
-      // Update photo capture button text
       if (photoCaptureBtn.style.display !== 'none') {
         photoCaptureBtn.textContent = `Capture ${currentCameraSide === 'left' ? 'Left' : 'Right'}`;
       }
@@ -1003,7 +985,7 @@
     initCanvases();
     updateUI();
 
-    // Add visibility change handler to restore canvases if needed
+    // Add visibility change handler
     document.addEventListener('visibilitychange', function() {
       if (!document.hidden) {
         if (leftCanvasData) restoreCanvas(leftCanvas, leftCanvasData);
