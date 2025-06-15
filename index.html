@@ -606,6 +606,22 @@
         gap: 12px;
       }
     }
+
+    .copyright-footer {
+  text-align: center;
+  color: var(--text-light);
+  font-size: 14px;
+  margin-top: 20px;
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 480px) {
+  .copyright-footer {
+    font-size: 12px;
+    padding: 12px 0;
+  }
+}
   </style>
 </head>
 <body>
@@ -886,6 +902,12 @@
       </div>
     </div>
   </div>
+
+  <!-- Add this just before the tutorial overlay -->
+  <footer class="copyright-footer">
+    &copy; 2025 Stereo Image Generator. All rights reserved.
+  </footer>
+</div> <!-- This is the closing div of app-container -->
 
   <!-- Tutorial Overlay -->
   <div class="tutorial-overlay" id="tutorialOverlay">
